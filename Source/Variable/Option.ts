@@ -3,10 +3,13 @@
  *
  */
 import { gray, blue, green, cyan, red } from 'kleur/colors'
+import { performance } from 'perf_hooks';
+let start, end;
 
 export default (
 	await import("typescript-esbuild/Target/Function/Merge.js")
 ).default((await import("files-pipe/Target/Variable/Option.js")).default, {
+	
 	CSS: {
 		csso: (await import("./CSS/csso.js")).default,
 		lightningcss: (await import("./CSS/lightningcss.js")).default,
@@ -28,14 +31,18 @@ export default (
 	Parser: (await import("./Parser.js")).default,
 	Action: {
 		Failed: async ({ Input }) => {
+			start = performance.now();
 			const idx = Input.lastIndexOf('/');
 			const file = Input.slice(idx + 1);
 			const dir = Input.slice(0, idx + 1);
 			return `${red("Error:")} Cannot compress file ${gray(dir)}${red(file)}`
 		},
-		Passed: async ({ Before, Buffer: _Buffer }) =>
-			Before > Buffer.byteLength(_Buffer.toString()),
+		Passed: async ({ Before, Buffer: _Buffer }) => {
+			start = performance.now();
+			return Before > Buffer.byteLength(_Buffer.toString())},
 		Accomplished: async ({ Input, Before, After }) => {
+			end = performance.now();
+			const time = (end - start).toFixed(2);
 			const compressed = Before - After;
 			const percent = `${(((compressed) / Before) * 100).toFixed(2)}%`;
 			const size = `(-${await (await import("files-pipe/Target/Function/Bytes.js")).default(compressed)})`;
@@ -43,7 +50,7 @@ export default (
 			const file = Input.slice(idx + 1);
 			const dir = Input.slice(0, idx + 1);
 			process.stderr.write("├─ ");
-			const msg = `${gray(size)}	${green(percent)} reduction in ${gray(dir)}${blue(file)}`;
+			const msg = `${gray(size)}	${green(percent)}	reduction in	${gray(dir)}${blue(file)} (+${time}ms)`;
 			return msg;
 		},
 		Changed: async (Plan) => {

@@ -3,6 +3,7 @@
  *
  */
 import { bgGreen, cyan } from 'kleur/colors'
+import { performance } from 'perf_hooks';
 
 export default ((...[_Option = {}]: Parameters<Type>) => {
 	Object.entries(_Option).forEach(([Key, Value]) =>
@@ -50,6 +51,9 @@ export default ((...[_Option = {}]: Parameters<Type>) => {
 		hooks: {
 			"astro:build:done": async ({ dir }) => {
 				process.stdout.write(`${bgGreen(" astro-compress processing ")}\n`);
+				// start timer for whole integration
+				const startAbs = performance.now();
+
 				if (typeof _Map !== "object") {
 					return;
 				}
@@ -75,11 +79,13 @@ export default ((...[_Option = {}]: Parameters<Type>) => {
 					) {
 						return;
 					}
-
+					// start timer for each batch
+					const start = performance.now()
 					_Action = Merge(
 						Action,
 						Merge(Action, {
 							Wrote: async ({ Buffer, Input }) => {
+
 								switch (File) {
 									case "CSS": {
 										// TODO: Implement lightningcss
@@ -157,18 +163,26 @@ export default ((...[_Option = {}]: Parameters<Type>) => {
 									default: {
 										return Buffer;
 									}
+									
 								}
+								
 							},
-							Fulfilled: async (Plan) =>
-								Plan.Files > 0
+							
+							Fulfilled: async (Plan) => {
+								// end and print time for each batch
+								// TODO: Add pretty-ms or handle minutes, seconds
+								const end = performance.now();
+								const time = ((end - start) / 1000).toFixed(2);
+								return Plan.Files > 0
 									? "└▶ " + cyan(`Successfully compressed a total of ${Plan.Files
 										} ${File} ${Plan.Files === 1 ? "file" : "files"
 										} for ${await (
 											await import(
 												"files-pipe/Target/Function/Bytes.js"
 											)
-										).default(Plan.Info.Total)}.\n`)
-									: false,
+										).default(Plan.Info.Total)}.`) + `(+${time}s)`
+									: false
+							},
 						} satisfies Action)
 					);
 
@@ -202,7 +216,13 @@ export default ((...[_Option = {}]: Parameters<Type>) => {
 							).Not(Exclude)
 						).Pipe(_Action);
 					}
+
 				}
+				// end and print timer for whole integration
+				// TODO: Add pretty-ms or handle minutes, seconds
+				const endAbs = performance.now();
+				const time = ((endAbs - startAbs) / 1000).toFixed(2);
+				process.stdout.write(`Completed in ${time}s.\n`);
 			},
 		},
 	};
